@@ -1,10 +1,11 @@
 package main
 
 import (
+	"encoding/json"
+	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -12,41 +13,47 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var bot *tgbotapi.BotAPI
-var chatID int64
-var urls []string
-var items = map[string]interface{}{}
+var (
+	config         Config
+	bot            *tgbotapi.BotAPI
+	configFileFlag = flag.String("config", "./config.json", "Config file")
+	items          = map[string]interface{}{}
+)
 
 func main() {
 	log.SetFormatter(&log.TextFormatter{ForceColors: true})
 	log.SetOutput(os.Stdout)
+	flag.Parse()
 
-	urlsString := os.Getenv("URLS")
-	if urlsString == "" {
+	if os.Getenv("CONFIG") != "" {
+		*configFileFlag = os.Getenv("CONFIG")
+	}
+
+	jsonFile, err := os.Open(*configFileFlag)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer jsonFile.Close()
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+
+	json.Unmarshal(byteValue, &config)
+
+	if len(config.Urls) == 0 {
 		log.Panic("Must provide url")
 	}
-	for _, u := range strings.Split(urlsString, ",") {
-		urls = append(urls, u)
-	}
 
-	if len(urls) == 0 {
-		log.Panic("Must provide url")
-	}
-
-	telegramToken := os.Getenv("TELEGRAM_TOKEN")
-	if telegramToken == "" {
+	if config.Token == "" {
 		log.Panic("Must provide key")
 	}
-	var err error
-	bot, err = tgbotapi.NewBotAPI(telegramToken)
+	bot, err = tgbotapi.NewBotAPI(config.Token)
 	if err != nil {
 		log.Panic(err)
 	}
 	// bot.Debug = true
-	log.Printf("Authorized on account %s", bot.Self.UserName)
+	log.Infof("Authorized on account %s", bot.Self.UserName)
 
-	chatID, err = strconv.ParseInt(os.Getenv("TELEGRAM_CHATID"), 10, 64)
-	if err != nil {
+	if config.ChatID == 0 {
 		log.Panic("Must provide Telegram chat id")
 	}
 	check(true)
@@ -58,11 +65,11 @@ func main() {
 
 func check(first bool) {
 	fp := gofeed.NewParser()
-	for _, url := range urls {
+	for _, url := range config.Urls {
 		feed, _ := fp.ParseURL(url)
 		for _, x := range feed.Items {
 			if _, ok := items[x.GUID]; !ok && !first {
-				m := tgbotapi.NewMessage(chatID, fmt.Sprintf("[%s](%s)", x.Title, x.GUID))
+				m := tgbotapi.NewMessage(config.ChatID, fmt.Sprintf("[%s](%s)", x.Title, x.GUID))
 				m.ParseMode = "Markdown"
 				_, err := bot.Send(m)
 				if err != nil {
@@ -74,4 +81,10 @@ func check(first bool) {
 			items[x.GUID] = true
 		}
 	}
+}
+
+type Config struct {
+	ChatID int64    `json:"chat_id"`
+	Token  string   `json:"token"`
+	Urls   []string `json:"urls"`
 }
