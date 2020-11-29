@@ -1,5 +1,6 @@
 {
     "chat_id": 100000000000,
     "token": "token",
+    "ignored_keywords": ["blockchain"],
     "urls": ["rss_url"]
 }

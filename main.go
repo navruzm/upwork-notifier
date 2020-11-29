@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -69,6 +70,9 @@ func check(first bool) {
 		feed, _ := fp.ParseURL(url)
 		for _, x := range feed.Items {
 			if _, ok := items[x.GUID]; !ok && !first {
+				if ignore(x.Title + x.Description) {
+					continue
+				}
 				m := tgbotapi.NewMessage(config.ChatID, fmt.Sprintf("[%s](%s)", x.Title, x.GUID))
 				m.ParseMode = "Markdown"
 				_, err := bot.Send(m)
@@ -83,8 +87,18 @@ func check(first bool) {
 	}
 }
 
+func ignore(s string) bool {
+	for _, i := range config.IgnoredKeywords {
+		if strings.Contains(strings.ToLower(s), i) {
+			return true
+		}
+	}
+	return false
+}
+
 type Config struct {
-	ChatID int64    `json:"chat_id"`
-	Token  string   `json:"token"`
-	Urls   []string `json:"urls"`
+	ChatID          int64    `json:"chat_id"`
+	Token           string   `json:"token"`
+	IgnoredKeywords []string `json:"ignored_keywords"`
+	Urls            []string `json:"urls"`
 }
