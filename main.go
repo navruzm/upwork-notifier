@@ -9,16 +9,15 @@ import (
 	"strings"
 	"time"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/gen2brain/beeep"
 	"github.com/mmcdole/gofeed"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
 	config         Config
-	bot            *tgbotapi.BotAPI
 	configFileFlag = flag.String("config", "./config.json", "Config file")
-	items          = map[string]interface{}{}
+	items          = map[string]struct{}{}
 )
 
 func main() {
@@ -44,19 +43,6 @@ func main() {
 		log.Panic("Must provide url")
 	}
 
-	if config.Token == "" {
-		log.Panic("Must provide key")
-	}
-	bot, err = tgbotapi.NewBotAPI(config.Token)
-	if err != nil {
-		log.Panic(err)
-	}
-	// bot.Debug = true
-	log.Infof("Authorized on account %s", bot.Self.UserName)
-
-	if config.ChatID == 0 {
-		log.Panic("Must provide Telegram chat id")
-	}
 	check(true)
 	ticker := time.NewTicker(time.Minute * 1)
 	for range ticker.C {
@@ -65,24 +51,35 @@ func main() {
 }
 
 func check(first bool) {
+	log.Info("Checking for available jobs")
 	fp := gofeed.NewParser()
 	for _, url := range config.Urls {
-		feed, _ := fp.ParseURL(url)
+		feed, err := fp.ParseURL(url)
+		if err != nil {
+			log.Error("Error parsing url:", err)
+			return
+		}
 		for _, x := range feed.Items {
 			if _, ok := items[x.GUID]; !ok && !first {
 				if ignore(x.Title + x.Description) {
 					continue
 				}
-				m := tgbotapi.NewMessage(config.ChatID, fmt.Sprintf("[%s](%s)", x.Title, x.GUID))
-				m.ParseMode = "Markdown"
-				_, err := bot.Send(m)
+
+				err := beeep.Beep(beeep.DefaultFreq, beeep.DefaultDuration)
 				if err != nil {
-					log.Error(err)
-					continue
+					log.Error("Error beeping:", err)
+					return
 				}
+
+				err = beeep.Notify("New job", fmt.Sprintf("%s: %s", x.Title, x.GUID), "information.png")
+				if err != nil {
+					log.Error("Error notifying:", err)
+					return
+				}
+
 				log.Infof("%s sended\n", x.Title)
 			}
-			items[x.GUID] = true
+			items[x.GUID] = struct{}{}
 		}
 	}
 }
@@ -97,8 +94,6 @@ func ignore(s string) bool {
 }
 
 type Config struct {
-	ChatID          int64    `json:"chat_id"`
-	Token           string   `json:"token"`
 	IgnoredKeywords []string `json:"ignored_keywords"`
 	Urls            []string `json:"urls"`
 }

@@ -1,3 +1,3 @@
-# Simple Upwork Notifier 
+# Simple Upwork Notifier
 
-Parse Upwork RSS feeds and send to Telegram group.
+Parse Upwork RSS feeds and send desktop notification.
