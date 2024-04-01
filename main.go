@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 	"time"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/mmcdole/gofeed"
 	log "github.com/sirupsen/logrus"
 )
@@ -36,7 +36,7 @@ func main() {
 	}
 	defer jsonFile.Close()
 
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 
 	json.Unmarshal(byteValue, &config)
 
@@ -80,7 +80,7 @@ func check(first bool) {
 					log.Error(err)
 					continue
 				}
-				log.Info("%s sended\n", x.Title)
+				log.Infof("%s sended\n", x.Title)
 			}
 			items[x.GUID] = true
 		}
